@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🥋 Samurai Jump</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(180deg, #ff6b6b 0%, #feca57 50%, #48dbfb 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        #game {
+            position: relative;
+            width: 350px;
+            height: 500px;
+            background: #fff;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        #start, #gameover {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            z-index: 10;
+        }
+        h1 { font-size: 28px; margin-bottom: 10px; color: #ff6b6b; }
+        p { font-size: 14px; margin: 5px 0; text-align: center; padding: 0 20px; }
+        .btn {
+            margin-top: 20px;
+            padding: 12px 30px;
+            font-size: 18px;
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+        }
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+            z-index: 5;
+        }
+        canvas { display: block; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div id="game">
+        <div id="start">
+            <h1>🥋 Samurai Jump</h1>
+            <p>🎮 <b>HOW TO PLAY</b></p>
+            <p>Click or Press SPACE to jump</p>
+            <p>Avoid the flying birds!</p>
+            <p>🐦 = Bad! Jump over!</p>
+            <p>⭐ = Good! Get points!</p>
+            <button class="btn" onclick="startGame()">PLAY</button>
+        </div>
+        <div id="gameover" class="hidden">
+            <h1>Game Over!</h1>
+            <p>Score: <span id="finalScore">0</span></p>
+            <button class="btn" onclick="startGame()">TRY AGAIN</button>
+        </div>
+        <div id="score">0</div>
+        <canvas id="canvas" width="350" height="500"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let gameRunning = false;
+        let score = 0;
+        let frames = 0;
+        
+        // Player (Samurai)
+        const player = {
+            x: 50,
+            y: 300,
+            width: 40,
+            height: 40,
+            dy: 0,
+            jumpForce: -12,
+            gravity: 0.6
+        };
+        
+        // Obstacles & Items
+        let obstacles = [];
+        let items = [];
+        
+        function startGame() {
+            document.getElementById('start').classList.add('hidden');
+            document.getElementById('gameover').classList.add('hidden');
+            
+            score = 0;
+            frames = 0;
+            player.y = 300;
+            player.dy = 0;
+            obstacles = [];
+            items = [];
+            gameRunning = true;
+            
+            document.getElementById('score').textContent = score;
+            gameLoop();
+        }
+        
+        function gameOver() {
+            gameRunning = false;
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('gameover').classList.remove('hidden');
+        }
+        
+        function jump() {
+            if (gameRunning && player.y > 200) {
+                player.dy = player.jumpForce;
+            }
+        }
+        
+        // Click or Space to jump
+        canvas.addEventListener('click', jump);
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                jump();
+            }
+        });
+        
+        function drawBackground() {
+            // Sky gradient
+            const grad = ctx.createLinearGradient(0, 0, 0, 500);
+            grad.addColorStop(0, '#87CEEB');
+            grad.addColorStop(1, '#E0F7FA');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 350, 500);
+            
+            // Mountains
+            ctx.fillStyle = '#90A955';
+            ctx.beginPath();
+            ctx.moveTo(0, 500);
+            ctx.lineTo(80, 350);
+            ctx.lineTo(160, 450);
+            ctx.lineTo(250, 320);
+            ctx.lineTo(350, 500);
+            ctx.fill();
+            
+            // Ground
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(0, 470, 350, 30);
+            
+            // Grass
+            ctx.fillStyle = '#32CD32';
+            ctx.fillRect(0, 465, 350, 10);
+        }
+        
+        function drawPlayer() {
+            // Body
+            ctx.fillStyle = '#DC143C';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            
+            // Head
+            ctx.fillStyle = '#FFE4C4';
+            ctx.fillRect(player.x + 5, player.y - 15, 30, 20);
+            
+            // Hat
+            ctx.fillStyle = '#333';
+            ctx.fillRect(player.x - 5, player.y - 20, 50, 8);
+            
+            // Eyes
+            ctx.fillStyle = '#000';
+            ctx.fillRect(player.x + 20, player.y - 10, 4, 4);
+            
+            // Sword
+            ctx.fillStyle = '#C0C0C0';
+            ctx.fillRect(player.x + 35, player.y + 10, 20, 5);
+        }
+        
+        function drawObstacles() {
+            obstacles.forEach(obs => {
+                // Bird
+                ctx.font = '30px Arial';
+                ctx.fillText('🐦', obs.x, obs.y + 30);
+            });
+        }
+        
+        function drawItems() {
+            items.forEach(item => {
+                // Star
+                ctx.font = '25px Arial';
+                ctx.fillText('⭐', item.x, item.y + 25);
+            });
+        }
+        
+        function update() {
+            frames++;
+            
+            // Player physics
+            player.dy += player.gravity;
+            player.y += player.dy;
+            
+            // Ground collision
+            if (player.y > 430) {
+                player.y = 430;
+                player.dy = 0;
+            }
+            // Ceiling
+            if (player.y < 50) {
+                player.y = 50;
+                player.dy = 0;
+            }
+            
+            // Spawn obstacles (birds)
+            if (frames % 100 === 0) {
+                obstacles.push({
+                    x: 350,
+                    y: 100 + Math.random() * 250,
+                    speed: 3 + score * 0.1
+                });
+            }
+            
+            // Spawn items (stars)
+            if (frames % 150 === 0) {
+                items.push({
+                    x: 350,
+                    y: 150 + Math.random() * 250,
+                    speed: 3
+                });
+            }
+            
+            // Update obstacles
+            obstacles.forEach((obs, i) => {
+                obs.x -= obs.speed;
+                
+                // Collision with player
+                if (player.x < obs.x + 30 &&
+                    player.x + player.width > obs.x &&
+                    player.y < obs.y + 30 &&
+                    player.y + player.height > obs.y) {
+                    gameOver();
+                }
+                
+                // Remove off-screen
+                if (obs.x < -50) obstacles.splice(i, 1);
+            });
+            
+            // Update items
+            items.forEach((item, i) => {
+                item.x -= item.speed;
+                
+                // Collect star
+                if (player.x < item.x + 25 &&
+                    player.x + player.width > item.x &&
+                    player.y < item.y + 25 &&
+                    player.y + player.height > item.y) {
+                    score += 10;
+                    document.getElementById('score').textContent = score;
+                    items.splice(i, 1);
+                }
+                
+                // Remove off-screen
+                if (item.x < -50) items.splice(i, 1);
+            });
+        }
+        
+        function draw() {
+            drawBackground();
+            drawPlayer();
+            drawObstacles();
+            drawItems();
+        }
+        
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            ctx.clearRect(0, 0, 350, 500);
+            update();
+            draw();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Initial draw
+        drawBackground();
+        drawPlayer();
+    </script>
+</body>
+</html>

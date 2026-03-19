@@ -1,0 +1,15 @@
+name: Test PAT Validity
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [main]
+
+jobs:
+  test-pat:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test PAT with GitHub API
+        run: |
+          echo "🔍 Testing PAT validity..."
+          curl -v -H "Authorization: token ${{ secrets.PAT_TOKEN }}" \
+            https://api.github.com/user

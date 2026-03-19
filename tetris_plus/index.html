@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Tetris Plus</title>
+    <style>
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background-color: #f0f0f0;
+        font-family: "Arial", "Microsoft YaHei", "SimHei", sans-serif;
+        margin: 0;
+        overflow: hidden;
+      }
+      canvas {
+        border: 2px solid #333;
+        background-color: #111;
+        margin-top: 20px;
+      }
+      .controls {
+        margin-top: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+      }
+      button {
+        padding: 8px 16px;
+        font-size: 16px;
+        cursor: pointer;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+      }
+      button:hover {
+        background-color: #45a049;
+      }
+      #pause {
+        background-color: #f44336;
+      }
+      #pause:hover {
+        background-color: #d32f2f;
+      }
+      .language-btn {
+        background-color: #2196f3;
+        margin-top: 10px;
+      }
+      .language-btn:hover {
+        background-color: #0b7dda;
+      }
+      .info {
+        margin-top: 20px;
+        font-size: 18px;
+      }
+      .bomb-info {
+        color: #f44336;
+        font-weight: bold;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+      }
+      .bomb-tip {
+        color: #666;
+        font-style: italic;
+        margin-top: 5px;
+        font-size: 16px;
+      }
+      .rules-container {
+        margin-top: 20px;
+        max-width: 600px;
+        text-align: left;
+        border: 1px solid #ddd;
+        padding: 10px 20px;
+        border-radius: 5px;
+        background-color: #f9f9f9;
+      }
+      .rules-container h3 {
+        color: #333;
+        margin-top: 10px;
+        margin-bottom: 5px;
+      }
+      .rules-container ul {
+        margin-top: 5px;
+      }
+      .hidden {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h1 id="game-title">Tetris Plus</h1>
+    <button id="switch-language" class="language-btn">
+      切换为中文 / Switch to Chinese
+    </button>
+
+    <canvas id="tetris" width="300" height="600"></canvas>
+    <div class="controls">
+      <button id="left">← Left</button>
+      <button id="rotate">Rotate</button>
+      <button id="right">Right →</button>
+      <button id="down">Speed Down ↓</button>
+      <button id="drop">Hard Drop (Space)</button>
+      <button id="pause">Pause/Resume (Enter)</button>
+    </div>
+    <div class="info">
+      <p><span id="score-label">Score</span>: <span id="score">0</span></p>
+      <p><span id="level-label">Level</span>: <span id="level">1</span></p>
+      <p class="bomb-info">
+        💣 <span id="small-bomb-label">Small Bomb</span>:
+        <span id="small-bomb-desc">Destroys 3x3 area</span> (1/20 chance)
+      </p>
+      <p class="bomb-info">
+        💣💣 <span id="medium-bomb-label">Medium Bomb</span>:
+        <span id="medium-bomb-desc">Destroys 5x5 area</span> (1/40 chance)
+      </p>
+      <p class="bomb-info">
+        💣💣💣 <span id="large-bomb-label">Large Bomb</span>:
+        <span id="large-bomb-desc">Destroys 7x7 area</span> (1/80 chance)
+      </p>
+      <p class="bomb-tip" id="bomb-tip">
+        Press space key to detonate bombs immediately!
+      </p>
+    </div>
+
+    <div class="rules-container" id="rules-container">
+      <h2 id="rules-title">Game Rules</h2>
+      <h3 id="basic-rules-title">Basic Rules</h3>
+      <ul>
+        <li id="rule-1">
+          Random 1-6 connected blocks fall from the top of the screen
+        </li>
+        <li id="rule-2">
+          Use arrow keys or on-screen buttons to move and rotate pieces
+        </li>
+        <li id="rule-3">
+          Fill a complete horizontal line to clear it and earn points
+        </li>
+        <li id="rule-4">
+          Game ends when blocks stack to the top of the screen
+        </li>
+      </ul>
+      <h3 id="bomb-rules-title">Special Bomb Blocks</h3>
+      <ul>
+        <li id="bomb-rule-1">Bombs occasionally appear among normal blocks</li>
+        <li id="bomb-rule-2">Bombs automatically detonate when they land</li>
+        <li id="bomb-rule-3">
+          Press Space to instantly detonate bombs while they're falling
+        </li>
+        <li id="bomb-rule-4">
+          Larger bombs are rarer but destroy bigger areas
+        </li>
+      </ul>
+      <h3 id="scoring-title">Scoring</h3>
+      <ul>
+        <li id="score-rule-1">
+          Clearing lines: 100 points × level × number of lines
+        </li>
+        <li id="score-rule-2">Small Bomb: 300 points bonus</li>
+        <li id="score-rule-3">Medium Bomb: 600 points bonus</li>
+        <li id="score-rule-4">Large Bomb: 1000 points bonus</li>
+      </ul>
+    </div>
+
+    <script>
+      // Language Settings
+      let currentLanguage = "en"; // Default language: English
+
+      const translations = {
+        en: {
+          gameTitle: "Tetris Plus",
+          switchLanguage: "切换为中文 / Switch to Chinese",
+          left: "← Left",
+          rotate: "Rotate",
+          right: "Right →",
+          down: "Speed Down ↓",
+          drop: "Hard Drop (Space)",
+          pause: "Pause/Resume (Enter)",
+          score: "Score",
+          level: "Level",
+          smallBomb: "Small Bomb",
+          mediumBomb: "Medium Bomb",
+          largeBomb: "Large Bomb",
+          smallBombDesc: "Destroys 3x3 area",
+          mediumBombDesc: "Destroys 5x5 area",
+          largeBombDesc: "Destroys 7x7 area",
+          bombTip: "Press space key to detonate bombs immediately!",
+          gamePaused: "PAUSED",
+          pressEnter: "Press Enter to continue",
+          gameOver: "Game Over! Final Score: ",
+          rulesTitle: "Game Rules",
+          basicRulesTitle: "Basic Rules",
+          rule1: "Random 1-6 connected blocks fall from the top of the screen",
+          rule2:
+            "Use arrow keys or on-screen buttons to move and rotate pieces",
+          rule3: "Fill a complete horizontal line to clear it and earn points",
+          rule4: "Game ends when blocks stack to the top of the screen",
+          bombRulesTitle: "Special Bomb Blocks",
+          bombRule1: "Bombs occasionally appear among normal blocks",
+          bombRule2: "Bombs automatically detonate when they land",
+          bombRule3:
+            "Press Space to instantly detonate bombs while they're falling",
+          bombRule4: "Larger bombs are rarer but destroy bigger areas",
+          scoringTitle: "Scoring",
+          scoreRule1: "Clearing lines: 100 points × level × number of lines",
+          scoreRule2: "Small Bomb: 300 points bonus",
+          scoreRule3: "Medium Bomb: 600 points bonus",
+          scoreRule4: "Large Bomb: 1000 points bonus",
+        },
+        zh: {
+          gameTitle: "俄罗斯方块",
+          switchLanguage: "Switch to English / 切换为英文",
+          left: "← 左移",
+          rotate: "旋转",
+          right: "右移 →",
+          down: "加速下落 ↓",
+          drop: "一键速降 (空格)",
+          pause: "暂停/继续 (回车)",
+          score: "分数",
+          level: "等级",
+          smallBomb: "小炸弹",
+          mediumBomb: "中炸弹",
+          largeBomb: "大炸弹",
+          smallBombDesc: "炸掉3x3范围",
+          mediumBombDesc: "炸掉5x5范围",
+          largeBombDesc: "炸掉7x7范围",
+          bombTip: "按空格键可以立即引爆炸弹!",
+          gamePaused: "已暂停",
+          pressEnter: "按回车键继续",
+          gameOver: "游戏结束! 最终得分: ",
+          rulesTitle: "游戏规则",
+          basicRulesTitle: "基本规则",
+          rule1: "随机1-6个相连的方块从屏幕顶部落下",
+          rule2: "使用方向键或屏幕按钮移动和旋转方块",
+          rule3: "填满一整行可以消除它并获得分数",
+          rule4: "当方块堆叠到屏幕顶部时游戏结束",
+          bombRulesTitle: "特殊炸弹方块",
+          bombRule1: "炸弹偶尔会出现在普通方块中",
+          bombRule2: "炸弹落地后会自动引爆",
+          bombRule3: "在炸弹下落时按空格键可以立即引爆",
+          bombRule4: "更大的炸弹更稀有，但可以摧毁更大的区域",
+          scoringTitle: "计分规则",
+          scoreRule1: "消除行: 100分 × 等级 × 行数",
+          scoreRule2: "小炸弹: 奖励300分",
+          scoreRule3: "中炸弹: 奖励600分",
+          scoreRule4: "大炸弹: 奖励1000分",
+        },
+      };
+
+      // Function to update UI language
+      function updateLanguage(lang) {
+        const t = translations[lang];
+
+        // Update UI elements
+        document.getElementById("game-title").textContent = t.gameTitle;
+        document.getElementById("switch-language").textContent =
+          t.switchLanguage;
+        document.getElementById("left").textContent = t.left;
+        document.getElementById("rotate").textContent = t.rotate;
+        document.getElementById("right").textContent = t.right;
+        document.getElementById("down").textContent = t.down;
+        document.getElementById("drop").textContent = t.drop;
+        document.getElementById("pause").textContent = t.pause;
+        document.getElementById("score-label").textContent = t.score;
+        document.getElementById("level-label").textContent = t.level;
+        document.getElementById("small-bomb-label").textContent = t.smallBomb;
+        document.getElementById("medium-bomb-label").textContent = t.mediumBomb;
+        document.getElementById("large-bomb-label").textContent = t.largeBomb;
+        document.getElementById("small-bomb-desc").textContent =
+          t.smallBombDesc;
+        document.getElementById("medium-bomb-desc").textContent =
+          t.mediumBombDesc;
+        document.getElementById("large-bomb-desc").textContent =
+          t.largeBombDesc;
+        document.getElementById("bomb-tip").textContent = t.bombTip;
+
+        // Rules section
+        document.getElementById("rules-title").textContent = t.rulesTitle;
+        document.getElementById("basic-rules-title").textContent =
+          t.basicRulesTitle;
+        document.getElementById("rule-1").textContent = t.rule1;
+        document.getElementById("rule-2").textContent = t.rule2;
+        document.getElementById("rule-3").textContent = t.rule3;
+        document.getElementById("rule-4").textContent = t.rule4;
+        document.getElementById("bomb-rules-title").textContent =
+          t.bombRulesTitle;
+        document.getElementById("bomb-rule-1").textContent = t.bombRule1;
+        document.getElementById("bomb-rule-2").textContent = t.bombRule2;
+        document.getElementById("bomb-rule-3").textContent = t.bombRule3;
+        document.getElementById("bomb-rule-4").textContent = t.bombRule4;
+        document.getElementById("scoring-title").textContent = t.scoringTitle;
+        document.getElementById("score-rule-1").textContent = t.scoreRule1;
+        document.getElementById("score-rule-2").textContent = t.scoreRule2;
+        document.getElementById("score-rule-3").textContent = t.scoreRule3;
+        document.getElementById("score-rule-4").textContent = t.scoreRule4;
+      }
+
+      // Initialize with English language
+      updateLanguage(currentLanguage);
+
+      // Language switch button handler
+      document
+        .getElementById("switch-language")
+        .addEventListener("click", () => {
+          currentLanguage = currentLanguage === "en" ? "zh" : "en";
+          updateLanguage(currentLanguage);
+        });
+
+      // 游戏常量
+      const COLS = 10;
+      const ROWS = 20;
+      const BLOCK_SIZE = 30;
+      const COLORS = [
+        null,
+        "#FF0D72", // 红色
+        "#0DC2FF", // 蓝色
+        "#0DFF72", // 绿色
+        "#F538FF", // 紫色
+        "#FF8E0D", // 橙色
+        "#FFE138", // 黄色
+        "#3877FF", // 深蓝
+      ];
+      const BOMB_COLOR = "#000000"; // 炸弹颜色（黑色）
+      const BOMB_VALUE = 8; // 炸弹的值，与普通方块区分开
+      const BOMB_FLASH_SPEED = 300; // 炸弹闪烁速度（毫秒）
+
+      // 炸弹类型常量
+      const SMALL_BOMB = 8; // 1x1 炸弹，炸3x3范围
+      const MEDIUM_BOMB = 9; // 2x2 炸弹，炸5x5范围
+      const LARGE_BOMB = 10; // 3x3 炸弹，炸7x7范围
+
+      // 炸弹概率 (分别是 1/20, 1/40, 1/80)
+      const SMALL_BOMB_CHANCE = 0.05; // 1/20
+      const MEDIUM_BOMB_CHANCE = 0.025; // 1/40
+      const LARGE_BOMB_CHANCE = 0.0125; // 1/80
+
+      // 游戏变量
+      let canvas = document.getElementById("tetris");
+      let ctx = canvas.getContext("2d");
+      let scoreElement = document.getElementById("score");
+      let levelElement = document.getElementById("level");
+      let score = 0;
+      let level = 1;
+      let dropCounter = 0;
+      let dropInterval = 1000;
+      let lastTime = 0;
+      let gameOver = false;
+      let paused = false;
+      let bombFlashState = false; // 炸弹闪烁状态
+      let lastBombFlashTime = 0; // 上次炸弹闪烁的时间
+
+      // 绘制单个方块
+      function drawBlock(x, y, color) {
+        ctx.fillStyle = color;
+        ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+        ctx.strokeStyle = "#000";
+        ctx.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+      }
+
+      // 绘制炸弹方块（闪烁效果）
+      function drawBombBlock(x, y, bombType) {
+        // 根据炸弹类型选择颜色
+        let color;
+
+        switch (bombType) {
+          case SMALL_BOMB:
+            color = bombFlashState ? "#FF0000" : BOMB_COLOR;
+            break;
+          case MEDIUM_BOMB:
+            color = bombFlashState ? "#FF6600" : "#330000";
+            break;
+          case LARGE_BOMB:
+            color = bombFlashState ? "#FF9900" : "#660000";
+            break;
+          default:
+            color = bombFlashState ? "#FF0000" : BOMB_COLOR;
+        }
+
+        ctx.fillStyle = color;
+        ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+        ctx.strokeStyle = "#000";
+        ctx.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+
+        // 绘制炸弹标志
+        const centerX = (x + 0.5) * BLOCK_SIZE;
+        const centerY = (y + 0.5) * BLOCK_SIZE;
+        const radius = BLOCK_SIZE / 5;
+
+        // 根据炸弹类型调整炸弹样式
+        if (bombType === MEDIUM_BOMB) {
+          // 中型炸弹样式（黄色圆形）
+          ctx.fillStyle = "#FFFF00";
+          ctx.beginPath();
+          ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 中型炸弹引线
+          ctx.strokeStyle = "#FFFFFF";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(centerX, centerY - radius);
+          ctx.lineTo(centerX, centerY - radius * 2);
+          ctx.stroke();
+        } else if (bombType === LARGE_BOMB) {
+          // 大型炸弹样式（橙色圆形）
+          ctx.fillStyle = "#FFA500";
+          ctx.beginPath();
+          ctx.arc(centerX, centerY, radius * 1.2, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 大型炸弹引线
+          ctx.strokeStyle = "#FFFFFF";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(centerX, centerY - radius);
+          ctx.lineTo(centerX, centerY - radius * 2.5);
+          ctx.stroke();
+        } else {
+          // 小型炸弹样式（白色圆形）
+          ctx.fillStyle = "#FFFFFF";
+          ctx.beginPath();
+          ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 小型炸弹引线
+          ctx.strokeStyle = "#FFFF00";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(centerX, centerY - radius);
+          ctx.lineTo(centerX, centerY - radius * 2);
+          ctx.stroke();
+        }
+
+        // 绘制火花
+        if (bombFlashState) {
+          // 火花颜色根据炸弹类型变化
+          let sparkColor;
+          let sparkSize;
+
+          switch (bombType) {
+            case SMALL_BOMB:
+              sparkColor = "#FFFF00";
+              sparkSize = radius / 2;
+              break;
+            case MEDIUM_BOMB:
+              sparkColor = "#FFFFFF";
+              sparkSize = radius / 1.5;
+              break;
+            case LARGE_BOMB:
+              sparkColor = "#FFFF99";
+              sparkSize = radius;
+              break;
+            default:
+              sparkColor = "#FFFF00";
+              sparkSize = radius / 2;
+          }
+
+          ctx.fillStyle = sparkColor;
+          ctx.beginPath();
+
+          if (bombType === LARGE_BOMB) {
+            // 大型炸弹有星形火花
+            drawStar(
+              centerX,
+              centerY - radius * 2.5,
+              5,
+              sparkSize,
+              sparkSize / 2
+            );
+          } else {
+            // 其他炸弹有圆形火花
+            ctx.arc(
+              centerX,
+              centerY - (bombType === MEDIUM_BOMB ? radius * 2 : radius * 2),
+              sparkSize,
+              0,
+              Math.PI * 2
+            );
+            ctx.fill();
+          }
+        }
+      }
+
+      // 绘制星形
+      function drawStar(cx, cy, spikes, outerRadius, innerRadius) {
+        let rot = (Math.PI / 2) * 3;
+        let x = cx;
+        let y = cy;
+        let step = Math.PI / spikes;
+
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - outerRadius);
+
+        for (let i = 0; i < spikes; i++) {
+          x = cx + Math.cos(rot) * outerRadius;
+          y = cy + Math.sin(rot) * outerRadius;
+          ctx.lineTo(x, y);
+          rot += step;
+
+          x = cx + Math.cos(rot) * innerRadius;
+          y = cy + Math.sin(rot) * innerRadius;
+          ctx.lineTo(x, y);
+          rot += step;
+        }
+
+        ctx.lineTo(cx, cy - outerRadius);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // 创建游戏板
+      function createMatrix(w, h) {
+        const matrix = [];
+        while (h--) {
+          matrix.push(new Array(w).fill(0));
+        }
+        return matrix;
+      }
+
+      let board = createMatrix(COLS, ROWS);
+
+      // 随机生成1-6个相连方块组成的图形
+      function createPiece() {
+        // 生成炸弹的概率检查
+        const random = Math.random();
+        if (random < LARGE_BOMB_CHANCE) {
+          return createLargeBomb();
+        } else if (random < MEDIUM_BOMB_CHANCE + LARGE_BOMB_CHANCE) {
+          return createMediumBomb();
+        } else if (
+          random <
+          SMALL_BOMB_CHANCE + MEDIUM_BOMB_CHANCE + LARGE_BOMB_CHANCE
+        ) {
+          return createSmallBomb();
+        }
+
+        const size = Math.floor(Math.random() * 6) + 1;
+        const piece = [];
+        for (let y = 0; y < size; y++) {
+          piece[y] = [];
+          for (let x = 0; x < size; x++) {
+            piece[y][x] = 0;
+          }
+        }
+
+        const color = Math.floor(Math.random() * (COLORS.length - 1)) + 1;
+        const centerX = Math.floor(size / 2);
+        const centerY = Math.floor(size / 2);
+        piece[centerY][centerX] = color;
+
+        let blocksPlaced = 1;
+        let maxAttempts = 100; // 防止无限循环
+        while (blocksPlaced < size && maxAttempts > 0) {
+          let startX, startY;
+          do {
+            startX = Math.floor(Math.random() * size);
+            startY = Math.floor(Math.random() * size);
+            maxAttempts--;
+            if (maxAttempts <= 0) break;
+          } while (piece[startY][startX] !== color);
+
+          if (maxAttempts <= 0) break;
+
+          const directions = [
+            [0, 1],
+            [1, 0],
+            [0, -1],
+            [-1, 0],
+          ];
+          const [dx, dy] =
+            directions[Math.floor(Math.random() * directions.length)];
+          const newX = startX + dx;
+          const newY = startY + dy;
+
+          if (
+            newX >= 0 &&
+            newX < size &&
+            newY >= 0 &&
+            newY < size &&
+            piece[newY][newX] === 0
+          ) {
+            piece[newY][newX] = color;
+            blocksPlaced++;
+          }
+        }
+
+        return trimPiece(piece);
+      }
+
+      // 创建小炸弹方块（1x1大小）
+      function createSmallBomb() {
+        // 创建一个1x1的炸弹方块
+        return [[SMALL_BOMB]];
+      }
+
+      // 创建中型炸弹方块（2x2大小）
+      function createMediumBomb() {
+        // 创建一个2x2的炸弹方块
+        return [
+          [MEDIUM_BOMB, MEDIUM_BOMB],
+          [MEDIUM_BOMB, MEDIUM_BOMB],
+        ];
+      }
+
+      // 创建大型炸弹方块（3x3大小）
+      function createLargeBomb() {
+        // 创建一个3x3的炸弹方块
+        return [
+          [LARGE_BOMB, LARGE_BOMB, LARGE_BOMB],
+          [LARGE_BOMB, LARGE_BOMB, LARGE_BOMB],
+          [LARGE_BOMB, LARGE_BOMB, LARGE_BOMB],
+        ];
+      }
+
+      // 移除图形中的空行和空列
+      function trimPiece(piece) {
+        // 防止空矩阵导致错误
+        if (!piece || piece.length === 0) {
+          return [[1]]; // 返回一个默认的1x1方块
+        }
+
+        let trimmed = piece.filter((row) => row.some((val) => val !== 0));
+
+        // 如果所有行都是空的，返回默认方块
+        if (trimmed.length === 0) {
+          return [[1]];
+        }
+
+        // 确保trimmed[0]存在再继续处理
+        if (trimmed.length > 0) {
+          const colsToRemove = [];
+          for (let x = 0; x < trimmed[0].length; x++) {
+            let isEmpty = true;
+            for (let y = 0; y < trimmed.length; y++) {
+              if (trimmed[y][x] !== 0) {
+                isEmpty = false;
+                break;
+              }
+            }
+            if (isEmpty) colsToRemove.push(x);
+          }
+
+          for (let i = colsToRemove.length - 1; i >= 0; i--) {
+            for (let y = 0; y < trimmed.length; y++) {
+              trimmed[y].splice(colsToRemove[i], 1);
+            }
+          }
+
+          // 如果所有列都被移除，返回默认方块
+          if (trimmed[0].length === 0) {
+            return [[1]];
+          }
+        }
+
+        return trimmed;
+      }
+
+      // 绘制游戏板和当前方块
+      function draw() {
+        ctx.fillStyle = "#111";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 处理炸弹闪烁
+        const currentTime = Date.now();
+        if (currentTime - lastBombFlashTime > BOMB_FLASH_SPEED) {
+          bombFlashState = !bombFlashState;
+          lastBombFlashTime = currentTime;
+        }
+
+        // 绘制游戏板
+        for (let y = 0; y < board.length; y++) {
+          // 确保行存在
+          if (!board[y]) continue;
+
+          for (let x = 0; x < board[y].length; x++) {
+            if (board[y][x]) {
+              const colorIndex = board[y][x];
+
+              // 如果是炸弹方块，使用特殊绘制
+              if (
+                colorIndex === SMALL_BOMB ||
+                colorIndex === MEDIUM_BOMB ||
+                colorIndex === LARGE_BOMB
+              ) {
+                drawBombBlock(x, y, colorIndex);
+              } else if (
+                colorIndex >= 0 &&
+                colorIndex < COLORS.length &&
+                COLORS[colorIndex]
+              ) {
+                // 确保颜色索引有效
+                drawBlock(x, y, COLORS[colorIndex]);
+              }
+            }
+          }
+        }
+
+        // 绘制当前方块
+        if (player.piece && player.pos) {
+          player.piece.forEach((row, y) => {
+            // 确保行存在
+            if (!row) return;
+
+            row.forEach((value, x) => {
+              if (value !== 0) {
+                const colorIndex = value;
+
+                // 如果是炸弹方块，使用特殊绘制
+                if (
+                  colorIndex === SMALL_BOMB ||
+                  colorIndex === MEDIUM_BOMB ||
+                  colorIndex === LARGE_BOMB
+                ) {
+                  drawBombBlock(x + player.pos.x, y + player.pos.y, colorIndex);
+                } else if (
+                  colorIndex >= 0 &&
+                  colorIndex < COLORS.length &&
+                  COLORS[colorIndex]
+                ) {
+                  // 确保颜色索引有效
+                  drawBlock(
+                    x + player.pos.x,
+                    y + player.pos.y,
+                    COLORS[colorIndex]
+                  );
+                }
+              }
+            });
+          });
+        }
+      }
+
+      // 合并方块到游戏板
+      function merge() {
+        // 安全检查
+        if (!player.piece || !player.pos) return;
+
+        let hasBomb = false;
+        let bombX = -1,
+          bombY = -1;
+        let bombType = 0;
+
+        player.piece.forEach((row, y) => {
+          // 确保行存在
+          if (!row) return;
+
+          row.forEach((value, x) => {
+            if (value !== 0) {
+              // 检查边界，确保不会写入无效位置
+              if (
+                y + player.pos.y >= 0 &&
+                y + player.pos.y < ROWS &&
+                x + player.pos.x >= 0 &&
+                x + player.pos.x < COLS
+              ) {
+                // 检查是否为炸弹
+                if (
+                  value === SMALL_BOMB ||
+                  value === MEDIUM_BOMB ||
+                  value === LARGE_BOMB
+                ) {
+                  hasBomb = true;
+                  bombX = x + player.pos.x;
+                  bombY = y + player.pos.y;
+                  bombType = value;
+                }
+
+                board[y + player.pos.y][x + player.pos.x] = value;
+              }
+            }
+          });
+        });
+
+        // 如果包含炸弹，执行爆炸效果
+        if (hasBomb) {
+          // 延迟爆炸，让玩家看到炸弹落下
+          setTimeout(() => {
+            explodeBomb(bombX, bombY, bombType);
+          }, 500);
+        }
+      }
+
+      // 炸弹爆炸效果
+      function explodeBomb(bombX, bombY, bombType) {
+        // 根据炸弹类型确定爆炸范围
+        let explosionRadius;
+        let scoreBonus;
+
+        switch (bombType) {
+          case SMALL_BOMB:
+            explosionRadius = 1; // 3x3 范围
+            scoreBonus = 300;
+            break;
+          case MEDIUM_BOMB:
+            explosionRadius = 2; // 5x5 范围
+            scoreBonus = 600;
+            break;
+          case LARGE_BOMB:
+            explosionRadius = 3; // 7x7 范围
+            scoreBonus = 1000;
+            break;
+          default:
+            explosionRadius = 1;
+            scoreBonus = 300;
+        }
+
+        // 播放爆炸动画（闪烁几次）
+        let flashCount = 0;
+        const maxFlashes = 5;
+        const flashInterval = setInterval(() => {
+          bombFlashState = !bombFlashState;
+          flashCount++;
+
+          if (flashCount >= maxFlashes) {
+            clearInterval(flashInterval);
+
+            // 绘制爆炸效果
+            drawExplosion(bombX, bombY, bombType);
+
+            // 执行爆炸，清除指定范围内的方块
+            for (
+              let y = bombY - explosionRadius;
+              y <= bombY + explosionRadius;
+              y++
+            ) {
+              for (
+                let x = bombX - explosionRadius;
+                x <= bombX + explosionRadius;
+                x++
+              ) {
+                if (y >= 0 && y < ROWS && x >= 0 && x < COLS) {
+                  board[y][x] = 0;
+                }
+              }
+            }
+
+            // 爆炸后增加分数
+            score += scoreBonus;
+            scoreElement.textContent = score;
+
+            // 检查是否有行可以清除
+            boardSweep();
+
+            // 检查升级
+            const newLevel = Math.floor(score / 1000) + 1;
+            if (newLevel > level) {
+              level = newLevel;
+              levelElement.textContent = level;
+              dropInterval = Math.max(100, 1000 - (level - 1) * 100);
+            }
+          }
+        }, 100);
+      }
+
+      // 绘制爆炸效果
+      function drawExplosion(bombX, bombY, bombType) {
+        // 根据炸弹类型确定爆炸效果大小
+        let radius;
+        let particles;
+
+        switch (bombType) {
+          case SMALL_BOMB:
+            radius = BLOCK_SIZE * 2;
+            particles = 30;
+            break;
+          case MEDIUM_BOMB:
+            radius = BLOCK_SIZE * 3;
+            particles = 50;
+            break;
+          case LARGE_BOMB:
+            radius = BLOCK_SIZE * 4;
+            particles = 80;
+            break;
+          default:
+            radius = BLOCK_SIZE * 2;
+            particles = 30;
+        }
+
+        // 爆炸动画参数
+        const centerX = (bombX + 0.5) * BLOCK_SIZE;
+        const centerY = (bombY + 0.5) * BLOCK_SIZE;
+
+        // 创建粒子效果
+        for (let i = 0; i < particles; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const distance = Math.random() * radius;
+          const particleX = centerX + Math.cos(angle) * distance;
+          const particleY = centerY + Math.sin(angle) * distance;
+          const particleSize = Math.random() * 8 + 2;
+
+          // 根据炸弹类型选择颜色
+          let color;
+          switch (bombType) {
+            case SMALL_BOMB:
+              color = `hsl(${Math.random() * 60}, 100%, 50%)`; // 红到黄色
+              break;
+            case MEDIUM_BOMB:
+              color = `hsl(${Math.random() * 30 + 20}, 100%, 50%)`; // 橙到红色
+              break;
+            case LARGE_BOMB:
+              color = `hsl(${Math.random() * 360}, 100%, 50%)`; // 全色谱
+              break;
+            default:
+              color = `hsl(${Math.random() * 60}, 100%, 50%)`;
+          }
+
+          // 绘制粒子
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.arc(particleX, particleY, particleSize, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // 绘制爆炸中心的光圈
+        let gradient;
+        switch (bombType) {
+          case SMALL_BOMB:
+            gradient = ctx.createRadialGradient(
+              centerX,
+              centerY,
+              0,
+              centerX,
+              centerY,
+              radius
+            );
+            gradient.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+            gradient.addColorStop(0.3, "rgba(255, 200, 0, 0.6)");
+            gradient.addColorStop(0.7, "rgba(255, 0, 0, 0.4)");
+            gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+            break;
+          case MEDIUM_BOMB:
+            gradient = ctx.createRadialGradient(
+              centerX,
+              centerY,
+              0,
+              centerX,
+              centerY,
+              radius
+            );
+            gradient.addColorStop(0, "rgba(255, 255, 255, 0.9)");
+            gradient.addColorStop(0.2, "rgba(255, 220, 0, 0.7)");
+            gradient.addColorStop(0.5, "rgba(255, 100, 0, 0.5)");
+            gradient.addColorStop(0.8, "rgba(255, 0, 0, 0.3)");
+            gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+            break;
+          case LARGE_BOMB:
+            gradient = ctx.createRadialGradient(
+              centerX,
+              centerY,
+              0,
+              centerX,
+              centerY,
+              radius
+            );
+            gradient.addColorStop(0, "rgba(255, 255, 255, 1.0)");
+            gradient.addColorStop(0.1, "rgba(255, 255, 200, 0.9)");
+            gradient.addColorStop(0.3, "rgba(255, 220, 0, 0.8)");
+            gradient.addColorStop(0.5, "rgba(255, 100, 0, 0.6)");
+            gradient.addColorStop(0.7, "rgba(255, 0, 0, 0.4)");
+            gradient.addColorStop(0.9, "rgba(100, 0, 0, 0.2)");
+            gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+            break;
+          default:
+            gradient = ctx.createRadialGradient(
+              centerX,
+              centerY,
+              0,
+              centerX,
+              centerY,
+              radius
+            );
+            gradient.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+            gradient.addColorStop(0.3, "rgba(255, 200, 0, 0.6)");
+            gradient.addColorStop(0.7, "rgba(255, 0, 0, 0.4)");
+            gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+        }
+
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 碰撞检测
+      function collide() {
+        // 安全检查
+        if (!player.piece) return false;
+
+        const [m, o] = [player.piece, player.pos];
+
+        // 检查玩家位置是否合法
+        if (o === undefined || o.x === undefined || o.y === undefined) {
+          return false;
+        }
+
+        for (let y = 0; y < m.length; y++) {
+          // 确保行存在
+          if (!m[y]) continue;
+
+          for (let x = 0; x < m[y].length; x++) {
+            if (
+              m[y][x] !== 0 &&
+              (board[y + o.y] === undefined ||
+                board[y + o.y][x + o.x] === undefined ||
+                board[y + o.y][x + o.x] !== 0)
+            ) {
+              return true;
+            }
+          }
+        }
+        return false;
+      }
+
+      // 修复后的旋转函数 - 实现真正的90度旋转
+      function rotate() {
+        // 如果没有方块，直接返回
+        if (
+          !player.piece ||
+          player.piece.length === 0 ||
+          player.piece[0].length === 0
+        ) {
+          return;
+        }
+
+        // 创建旋转后的新矩阵
+        const original = player.piece;
+        const N = original.length;
+        const M = original[0].length;
+        const rotated = [];
+
+        // 初始化旋转后的矩阵
+        for (let i = 0; i < M; i++) {
+          rotated[i] = new Array(N).fill(0);
+        }
+
+        // 执行90度顺时针旋转
+        for (let y = 0; y < N; y++) {
+          for (let x = 0; x < M; x++) {
+            rotated[x][N - 1 - y] = original[y][x];
+          }
+        }
+
+        // 保存原始位置
+        const originalPos = {...player.pos};
+        const originalPiece = player.piece;
+
+        // 尝试旋转
+        player.piece = rotated;
+
+        // 如果旋转后发生碰撞，尝试调整位置
+        if (collide()) {
+          let offset = 1;
+          while (offset <= 2) {
+            // 最多尝试左右移动2格
+            // 尝试向右移动
+            player.pos.x += offset;
+            if (!collide()) break;
+
+            // 尝试向左移动
+            player.pos.x = originalPos.x - offset;
+            if (!collide()) break;
+
+            // 恢复原始位置
+            player.pos.x = originalPos.x;
+            offset++;
+          }
+
+          // 如果调整后仍然碰撞，恢复原始状态
+          if (collide()) {
+            player.piece = originalPiece;
+            player.pos = originalPos;
+          }
+        }
+      }
+
+      // 清除完整的行
+      function boardSweep() {
+        let linesCleared = 0;
+        outer: for (let y = board.length - 1; y >= 0; y--) {
+          for (let x = 0; x < board[y].length; x++) {
+            if (board[y][x] === 0) {
+              continue outer;
+            }
+          }
+
+          const row = board.splice(y, 1)[0].fill(0);
+          board.unshift(row);
+          y++;
+          linesCleared++;
+        }
+
+        if (linesCleared > 0) {
+          score += linesCleared * 100 * level;
+          scoreElement.textContent = score;
+
+          const newLevel = Math.floor(score / 1000) + 1;
+          if (newLevel > level) {
+            level = newLevel;
+            levelElement.textContent = level;
+            dropInterval = Math.max(100, 1000 - (level - 1) * 100);
+          }
+        }
+      }
+
+      // 重置玩家位置和方块
+      function playerReset() {
+        player.piece = createPiece();
+        player.pos.y = 0;
+
+        // 确保 player.piece 和 player.piece[0] 存在
+        if (!player.piece || !player.piece[0]) {
+          player.piece = [[1]]; // 使用默认方块
+        }
+
+        player.pos.x = Math.floor((COLS - player.piece[0].length) / 2);
+
+        if (collide()) {
+          gameOver = true;
+          alert(`${translations[currentLanguage].gameOver}${score}`);
+          board = createMatrix(COLS, ROWS);
+          score = 0;
+          level = 1;
+          dropInterval = 1000;
+          scoreElement.textContent = score;
+          levelElement.textContent = level;
+          gameOver = false; // 重置游戏状态，确保可以重新开始
+        }
+      }
+
+      // 玩家控制
+      const player = {
+        pos: {x: 0, y: 0},
+        piece: null,
+      };
+
+      // 玩家移动
+      function playerMove(dir) {
+        // 安全检查
+        if (!player.piece || !player.pos) return;
+
+        player.pos.x += dir;
+        if (collide()) {
+          player.pos.x -= dir;
+        }
+      }
+
+      // 玩家下落
+      function playerDrop() {
+        // 安全检查
+        if (!player.piece || !player.pos) return;
+
+        player.pos.y++;
+        if (collide()) {
+          player.pos.y--;
+          merge();
+          boardSweep();
+          playerReset();
+        }
+        dropCounter = 0;
+      }
+
+      // 一键速降
+      function hardDrop() {
+        // 安全检查
+        if (!player.piece || !player.pos) return;
+
+        // 检查当前方块是否为炸弹，如果是则立即引爆
+        if (isBomb(player.piece)) {
+          detonateBomb();
+          return;
+        }
+
+        // 限制下落次数，防止无限循环
+        let maxDrops = ROWS;
+        while (!collide() && maxDrops > 0) {
+          player.pos.y++;
+          maxDrops--;
+        }
+        player.pos.y--;
+        merge();
+        boardSweep();
+        playerReset();
+        dropCounter = 0;
+      }
+
+      // 检查方块是否为炸弹
+      function isBomb(piece) {
+        for (let y = 0; y < piece.length; y++) {
+          for (let x = 0; x < piece[y].length; x++) {
+            if (
+              piece[y][x] === SMALL_BOMB ||
+              piece[y][x] === MEDIUM_BOMB ||
+              piece[y][x] === LARGE_BOMB
+            ) {
+              return true;
+            }
+          }
+        }
+        return false;
+      }
+
+      // 立即引爆当前炸弹
+      function detonateBomb() {
+        if (!player.piece || !player.pos) return;
+
+        let bombX = -1,
+          bombY = -1;
+        let bombType = 0;
+        let hasBomb = false;
+
+        // 寻找炸弹位置（使用第一个找到的炸弹）
+        outer: for (let y = 0; y < player.piece.length; y++) {
+          for (let x = 0; x < player.piece[y].length; x++) {
+            if (
+              player.piece[y][x] === SMALL_BOMB ||
+              player.piece[y][x] === MEDIUM_BOMB ||
+              player.piece[y][x] === LARGE_BOMB
+            ) {
+              bombX = x + player.pos.x;
+              bombY = y + player.pos.y;
+              bombType = player.piece[y][x];
+              hasBomb = true;
+              break outer;
+            }
+          }
+        }
+
+        if (hasBomb) {
+          // 立即引爆炸弹
+          explodeBomb(bombX, bombY, bombType);
+
+          // 清除当前方块
+          player.piece = null;
+
+          // 生成新方块
+          playerReset();
+        }
+      }
+
+      // 游戏主循环
+      function update(time = 0) {
+        if (gameOver) {
+          // 不立即重置游戏状态，等待用户响应
+          // gameOver = false;
+          return;
+        }
+
+        // 如果游戏暂停，只绘制当前状态并继续请求下一帧
+        if (paused) {
+          // 在画面中央显示暂停信息
+          ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          ctx.font = "30px Arial";
+          ctx.fillStyle = "white";
+          ctx.textAlign = "center";
+          ctx.fillText(
+            translations[currentLanguage].gamePaused,
+            canvas.width / 2,
+            canvas.height / 2
+          );
+          ctx.font = "16px Arial";
+          ctx.fillText(
+            translations[currentLanguage].pressEnter,
+            canvas.width / 2,
+            canvas.height / 2 + 30
+          );
+
+          requestAnimationFrame(update);
+          return;
+        }
+
+        const deltaTime = time - lastTime;
+        lastTime = time;
+
+        dropCounter += deltaTime;
+        if (dropCounter > dropInterval) {
+          playerDrop();
+        }
+
+        draw();
+        requestAnimationFrame(update);
+      }
+
+      // 键盘控制
+      document.addEventListener("keydown", (event) => {
+        if (gameOver) return;
+
+        if ([13, 32, 37, 38, 39, 40].includes(event.keyCode)) {
+          event.preventDefault();
+        }
+
+        // 处理回车键暂停/继续
+        if (event.keyCode === 13) {
+          // 回车键
+          paused = !paused; // 切换暂停状态
+          return;
+        }
+
+        // 如果游戏已暂停，不处理其他按键
+        if (paused) return;
+
+        switch (event.keyCode) {
+          case 37: // 左箭头
+            playerMove(-1);
+            break;
+          case 39: // 右箭头
+            playerMove(1);
+            break;
+          case 40: // 下箭头
+            playerDrop();
+            break;
+          case 38: // 上箭头
+            rotate();
+            break;
+          case 32: // 空格键
+            hardDrop();
+            break;
+        }
+      });
+
+      // 按钮控制
+      document.getElementById("left").addEventListener("click", () => {
+        if (!gameOver && !paused) playerMove(-1);
+      });
+      document.getElementById("right").addEventListener("click", () => {
+        if (!gameOver && !paused) playerMove(1);
+      });
+      document.getElementById("rotate").addEventListener("click", () => {
+        if (!gameOver && !paused) rotate();
+      });
+      document.getElementById("down").addEventListener("click", () => {
+        if (!gameOver && !paused) playerDrop();
+      });
+      document.getElementById("drop").addEventListener("click", () => {
+        if (!gameOver && !paused) hardDrop();
+      });
+      document.getElementById("pause").addEventListener("click", () => {
+        if (!gameOver) paused = !paused;
+      });
+
+      // 开始游戏
+      playerReset();
+      update();
+    </script>
+  </body>
+</html>
